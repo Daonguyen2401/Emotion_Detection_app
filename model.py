@@ -12,6 +12,7 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
+
 # command line argument
 ap = argparse.ArgumentParser()
 ap.add_argument("--mode",help="train/display")
@@ -42,7 +43,9 @@ emotion_dict = {0: "Angry", 1: "Disgusted", 2: "Fearful", 3: "Happy", 4: "Neutra
 
 
 def emotion_detection(frame):
+        os.chdir(os.path.dirname(os.path.abspath(__file__)))
         emotion = None
+        maxindex = None
         if frame is None:
             print("Could not read input file")
             return
@@ -62,27 +65,28 @@ def emotion_detection(frame):
                     emotion = emotion_dict[maxindex]
                     cv2.putText(frame, emotion, (x+20, y-60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
                 else:
-            
+                    maxindex = None
                     emotion = None
                     cv2.putText(frame, 'Cannot Detect', (x+20, y-60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
                     
-            return frame,emotion
+            return frame,emotion,maxindex
 
 def predict_image(upload_image):
         image = Image.open(upload_image)
         imagarray  = np.array(image)
-        detected_image,prediction = emotion_detection(imagarray)
+        detected_image,prediction,maxindex = emotion_detection(imagarray)
         detected_image = Image.fromarray(detected_image)
-        return detected_image,prediction
+        return detected_image,prediction,maxindex
 
     
 
 if __name__ == '__main__':
-        frame = cv2.imread('nguyen.jpg')
-        image,prediction = emotion_detection(frame)
+        frame = cv2.imread('R.jpg')
+        image,prediction,maxindex = emotion_detection(frame)
         # cv2.imshow('Emotion Detection', prediction)
         # cv2.waitKey(0)  # Wait indefinitely for a key press
-        # cv2.destroyAllWindows()           
+        # cv2.destroyAllWindows()         
+        print(maxindex)  
              
              
 

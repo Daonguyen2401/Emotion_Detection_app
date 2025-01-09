@@ -5,8 +5,16 @@ from datetime import datetime,timedelta
 from pathlib import Path
 import shutil
 from PIL import Image
+from typing import Optional,TypeVar,List
+import random
+import arduino
+
+
+
+print("Current Working Directory:", os.getcwd())
 
 def save_daily_emotion(timestamp, emotion, song_name, image):
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
     """
     Save emotion data and image to local storage and SQLite database.
     
@@ -30,8 +38,12 @@ def save_daily_emotion(timestamp, emotion, song_name, image):
         image_path = image_dir / image_filename
 
         # Save image to local folder
+        image = Image.open(image)
         if isinstance(image, Image.Image):  # If it's a PIL/Pillow Image object
             image.save(str(image_path), 'JPEG')
+            print("Image saved")
+        else:
+            print("Image not saved")
 
         # Connect to SQLite database
         conn = sqlite3.connect('emotions.db')
@@ -70,11 +82,8 @@ def recomend_audio(emotion):
     song_name = "Toystory"
     return song_name,path
 
-import sqlite3
-from datetime import datetime
 
-import sqlite3
-from datetime import datetime
+
 
 def query_emotions_history(from_date=None, to_date=None):
     """
@@ -150,13 +159,84 @@ def query_emotions_history(from_date=None, to_date=None):
     except Exception as e:
         print(f"Error querying emotions: {str(e)}")
         return []
+    
+def query_songs(category: Optional[int] = None) -> list[dict]:
+    
+    try:
+        # Connect to the database
+        conn = sqlite3.connect('emotions.db')
+        # Create a cursor object using Row factory to get dictionary-like results
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        if category is not None:
+            # Execute query with category filter
+            cursor.execute('''
+                SELECT *
+                FROM songs
+                WHERE category = ?
+            ''', (category,))
+        else:
+            # Execute query without filter
+            cursor.execute('''
+                SELECT *
+                FROM songs
+            ''')
+        
+        # Fetch all matching rows and convert to list of dictionaries
+        songs = [dict(row) for row in cursor.fetchall()]
+        
+        return songs
+        
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+        return []
+        
+    finally:
+        if conn:
+            conn.close()
 
+T = TypeVar('T')
+
+def get_random_song(items: List[T]) -> Optional[T]:
+    """
+    Select a random element from a list.
+    
+    Args:
+        items (List[T]): List of items to choose from
+        
+    Returns:
+        Optional[T]: A random element from the list, or None if the list is empty
+    """
+    if not items:
+        return None
+    return random.choice(items)
 
 if __name__ == '__main__':
-    image = Image.open('nguyen.jpg')
-    save_daily_emotion(datetime.now()+timedelta(days=1), 'Happy', 'Toystory', image)
+    # image = Image.open('nguyen.jpg')
+    # save_daily_emotion(datetime.now()+timedelta(days=1), 'Happy', 'Toystory', image)
     # ressult = query_emotions_history()
     # print(ressult)
+    # songs = query_songs("4")
+    # song = get_random_song(songs)
+    # #print((song['melody']))
+    # arduino_code = arduino.create_code_content(song['melody'], song['duration'])
+    # success, message = arduino.create_arduino_file(
+    #     folder_path="code",
+    #     filename="code",
+    #     code_content=arduino_code,
+    #     overwrite=True  # Set to True to allow overwriting
+    # )
+    # success, message = arduino.upload_play_song()
+    # os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+    # print("Current Working Directory:", os.getcwd())
+    songs = query_songs()
+    print(songs)
+    
+    
+    
+
 
 
 

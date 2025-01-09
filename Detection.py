@@ -1,7 +1,11 @@
 import streamlit as st
+
+import os
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 import model
 from datetime import datetime
 import utils
+import arduino
 
 st.set_page_config(page_title='Emotion Detection', page_icon=':smiley:', layout='wide', initial_sidebar_state='expanded')
 
@@ -15,6 +19,8 @@ if "detected" not in st.session_state:
     st.session_state.detected = False
 if "prediction" not in st.session_state:
     st.session_state.prediction = False
+if "song" not in st.session_state:
+    st.session_state.song = None
 
 
 
@@ -65,38 +71,64 @@ if st.session_state.image: #Cached
         col1_result, col2_result = st.columns(2)
         with col1_result:
             if st.session_state.image_changed:
+                arduino.upload_empty_code()
 
-                prediction_image,prediction = model.predict_image(image)
+                prediction_image,prediction,prediction_int = model.predict_image(image)
                 st.image(prediction_image ,caption='Emotion Detection',width=700)
                 if prediction:
                     st.write('Emotion detected successfully')
+                    songs = utils.query_songs(prediction_int)
+                    song = utils.get_random_song(songs)
+                    arduino_code = arduino.create_code_content(song['melody'], song['duration'])
+                    success, message = arduino.create_arduino_file(
+                        folder_path="code",
+                        filename="code",
+                        code_content=arduino_code,
+                        overwrite=True  # Set to True to allow overwriting
+                    )
                     st.balloons()
                 else:
-
+                    song = None
+                    
                     st.write("Cannot detect emotion")
+
+                
 
                 ### Caching Image
                 st.session_state.image_changed = False
                 st.session_state.predict_image = prediction_image
                 st.session_state.prediction = prediction
+                st.session_state.song = song
 
             else:
                 prediction_image = st.session_state.predict_image
                 prediction = st.session_state.prediction 
+                song = st.session_state.song
                 st.image(prediction_image, caption='Emotion Detection',width=700)
-                st.write('Emotion has been detected')
+                if st.session_state.prediction:
+                    st.write('Emotion detected successfully')
+                    st.balloons()
+                else:
+                    st.write("Cannot detect emotion")
         
         with col2_result:
             st.header("Song Recommendation")
-            song_name,path = utils.recomend_audio(prediction)
-            st.write(f"Song name: {song_name}")
-            st.audio(path, format="audio/mp3", start_time=0)
-            st.subheader("Save your Emotion")
-            with st.form("example_form",clear_on_submit=True):
-                # Datetime input
-                datetime_input = st.date_input("Select a date:", value=datetime.now().date())
+            if song is None:
+                song_name = None
+                st.write(f"Song name: Cannot Recomenend a song because Cannot Detect your Emotion")
+            else:
+                song_name = song['name']
+                st.write(f"Song name: {song_name}")
+                st.button("Play Song",on_click=arduino.upload_play_song)
+                st.button("Pause Song",on_click=arduino.upload_empty_code)
 
-                # Text input with default value "happy"
+            st.subheader("Save your Emotion")
+            with st.form("example_form",clear_on_submit=False):
+                # Datetime input
+                current_time = datetime.now()   
+                datetime_input = st.date_input("Select a date:", value=current_time)
+
+                
                 mood = st.text_input("Mood:", value=prediction)
 
                 # Text input for song name
@@ -104,6 +136,10 @@ if st.session_state.image: #Cached
 
                 # Submit button
                 submit_button = st.form_submit_button("Submit",disabled=False)
+                if submit_button:
+                    utils.save_daily_emotion(current_time, mood, song_name, image)
+                    st.write("Emotion saved successfully")
+                    
                 
 
 
